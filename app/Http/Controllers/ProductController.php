@@ -16,10 +16,7 @@ class ProductController extends Controller
     public function index()
     {
         $products = Product::all();
-        
-        return response()->json([
-            'products' => $products
-        ]);
+        return response()->json($products);
     }
 
     /**
@@ -30,33 +27,14 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        // Check if user is admin
-        if (!$this->isAdmin($request->user())) {
-            return response()->json([
-                'message' => 'Unauthorized. Admin access required.'
-            ], 403);
-        }
-
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'stock' => 'required|integer|min:0',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $product = Product::create([
-            'name' => $request->name,
-            'price' => $request->price,
-            'stock' => $request->stock,
-        ]);
-
-        return response()->json([
-            'message' => 'Product created successfully',
-            'product' => $product
-        ], 201);
+        $product = Product::create($request->all());
+        return response()->json($product, 201);
     }
 
     /**
@@ -149,6 +127,6 @@ class ProductController extends Controller
         // For example: return $user && $user->hasRole('admin');
         
         // For this example, we'll just assume admin has id = 1
-        return $user && $user->id === 1;
+        return $user && $user->is_admin;
     }
 }

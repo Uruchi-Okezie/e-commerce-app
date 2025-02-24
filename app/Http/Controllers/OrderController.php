@@ -20,10 +20,7 @@ class OrderController extends Controller
     public function index(Request $request)
     {
         $orders = $request->user()->orders()->with('items.product')->get();
-        
-        return response()->json([
-            'orders' => $orders
-        ]);
+        return response()->json($orders);
     }
 
     /**
@@ -34,71 +31,58 @@ class OrderController extends Controller
      */
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'items' => 'required|array|min:1',
+        $request->validate([
+            'items' => 'required|array',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
         try {
             return DB::transaction(function () use ($request) {
-                $totalPrice = 0;
+                $total = 0;
                 $items = [];
 
-                // Validate stock and calculate total price
+                // Calculate total and verify stock
                 foreach ($request->items as $item) {
                     $product = Product::findOrFail($item['product_id']);
                     
-                    // Check if enough stock is available
                     if ($product->stock < $item['quantity']) {
-                        throw new \Exception("Not enough stock for product: {$product->name}");
+                        throw new \Exception("Insufficient stock for product: {$product->name}");
                     }
 
-                    $itemPrice = $product->price * $item['quantity'];
-                    $totalPrice += $itemPrice;
-
+                    $total += $product->price * $item['quantity'];
                     $items[] = [
                         'product' => $product,
-                        'quantity' => $item['quantity'],
-                        'price' => $itemPrice
+                        'quantity' => $item['quantity']
                     ];
                 }
 
                 // Create order
                 $order = Order::create([
                     'user_id' => $request->user()->id,
-                    'total_price' => $totalPrice,
+                    'total_price' => $total
                 ]);
 
                 // Create order items and update stock
                 foreach ($items as $item) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
+                    $order->items()->create([
                         'product_id' => $item['product']->id,
                         'quantity' => $item['quantity'],
-                        'price_at_purchase' => $item['product']->price,
+                        'price_at_purchase' => $item['product']->price
                     ]);
 
-                    // Decrease product stock
+                    // Update stock
                     $item['product']->decrement('stock', $item['quantity']);
                 }
 
-                // Load the items relationship
-                $order->load('items.product');
-
                 return response()->json([
                     'message' => 'Order created successfully',
-                    'order' => $order
+                    'order' => $order->load('items.product')
                 ], 201);
             });
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to create order',
-                'error' => $e->getMessage()
+                'message' => $e->getMessage()
             ], 400);
         }
     }
@@ -112,18 +96,11 @@ class OrderController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $order = Order::with('items.product')->findOrFail($id);
-
-        // Ensure the user owns this order or is an admin
-        if ($order->user_id !== $request->user()->id && !$this->isAdmin($request->user())) {
-            return response()->json([
-                'message' => 'Unauthorized access to this order'
-            ], 403);
-        }
-
-        return response()->json([
-            'order' => $order
-        ]);
+        $order = Order::with('items.product')
+            ->where('user_id', $request->user()->id)
+            ->findOrFail($id);
+            
+        return response()->json($order);
     }
 
     /**
