@@ -8,12 +8,15 @@ class CreateOrdersTable extends Migration
 {
     public function up()
     {
-        Schema::create('orders', function (Blueprint $table) {
+        Schema::create('order_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->decimal('total_price', 10, 2);
+            $table->foreignId('order_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('product_id')->constrained();
+            $table->integer('quantity');
+            $table->decimal('price_at_purchase', 10, 2);
             $table->timestamps();
         });
+        
     }
 
     public function down()

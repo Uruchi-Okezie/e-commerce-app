@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{id}', [ProductController::class, 'show']);
+
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -22,7 +24,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/{id}', [OrderController::class, 'show']);
     
     // Admin only
-    Route::middleware('admin')->group(function () {
+    Route::middleware(\App\Http\Middleware\AdminMiddleware::class)->group(function () {
         Route::post('/products', [ProductController::class, 'store']);
     });
+    
 });

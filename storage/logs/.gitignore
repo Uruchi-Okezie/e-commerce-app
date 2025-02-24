@@ -1,2 +1,36 @@
-*
-!.gitignore
+# Ignore environment variables (VERY IMPORTANT!)
+.env
+.env.backup
+.env.production
+
+# Ignore Composer dependencies (vendor/)
+vendor/
+
+# Ignore Node dependencies (if using frontend assets)
+node_modules/
+
+# Ignore Laravel cache & logs
+bootstrap/cache/
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+storage/*.key
+
+# Ignore build files
+/public/build
+/public/hot
+/public/storage
+
+# Ignore PHPUnit & PHPStorm cache files
+.phpunit.cache
+.phpunit.result.cache
+.phpactor.json
+
+# Ignore editor & system files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.code-workspace
+Homestead.json  # <-- REMOVE this if you're not using Laravel Homestead

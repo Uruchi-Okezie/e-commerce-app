@@ -29,63 +29,61 @@ class OrderController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'items' => 'required|array',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'items' => 'required|array',
+        'items.*.product_id' => 'required|exists:products,id',
+        'items.*.quantity' => 'required|integer|min:1',
+    ]);
 
-        try {
-            return DB::transaction(function () use ($request) {
-                $total = 0;
-                $items = [];
+    try {
+        return DB::transaction(function () use ($request) {
+            $user = auth()->user();
+            $total = 0;
+            $items = [];
 
-                // Calculate total and verify stock
-                foreach ($request->items as $item) {
-                    $product = Product::findOrFail($item['product_id']);
-                    
-                    if ($product->stock < $item['quantity']) {
-                        throw new \Exception("Insufficient stock for product: {$product->name}");
-                    }
+            foreach ($request->items as $item) {
+                $product = Product::findOrFail($item['product_id']);
 
-                    $total += $product->price * $item['quantity'];
-                    $items[] = [
-                        'product' => $product,
-                        'quantity' => $item['quantity']
-                    ];
+                if ($product->stock < $item['quantity']) {
+                    throw new \Exception("Insufficient stock for product: {$product->name}");
                 }
 
-                // Create order
-                $order = Order::create([
-                    'user_id' => $request->user()->id,
-                    'total_price' => $total
+                $total += $product->price * $item['quantity'];
+                $items[] = [
+                    'product' => $product,
+                    'quantity' => $item['quantity']
+                ];
+            }
+
+            $order = Order::create([
+                'user_id' => $user->id,
+                'total_price' => $total
+            ]);
+
+            foreach ($items as $item) {
+                $order->items()->create([
+                    'product_id' => $item['product']->id,
+                    'quantity' => $item['quantity'],
+                    'price_at_purchase' => $item['product']->price
                 ]);
 
-                // Create order items and update stock
-                foreach ($items as $item) {
-                    $order->items()->create([
-                        'product_id' => $item['product']->id,
-                        'quantity' => $item['quantity'],
-                        'price_at_purchase' => $item['product']->price
-                    ]);
+                $item['product']->decrement('stock', $item['quantity']);
+            }
 
-                    // Update stock
-                    $item['product']->decrement('stock', $item['quantity']);
-                }
-
-                return response()->json([
-                    'message' => 'Order created successfully',
-                    'order' => $order->load('items.product')
-                ], 201);
-            });
-        } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
-            ], 400);
-        }
+                'message' => 'Order created successfully',
+                'order' => $order->load('items.product')
+            ], 201);
+        });
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => $e->getMessage()
+        ], 400);
     }
+}
+
 
     /**
      * Display the specified order.
